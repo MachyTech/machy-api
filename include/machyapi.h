@@ -150,18 +150,22 @@ void run_process(char *request){
 
 void run_cli(){
     printf("To send data, enter command followed by enter.\n");
-    while(1){
-        fd_set reads;
-        FD_ZERO(&reads);
-        FD_SET(socket_connection->socket_peer, &reads);
+    fd_set reads;
+    FD_ZERO(&reads);
+    FD_SET(socket_connection->socket_peer, &reads);
+    FD_SET(0, &reads);
 
-        struct timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 100;
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 100;
+    
+    while(1){
+
         if (select(socket_connection->socket_peer, &reads, 0,0, &timeout) < 0){
             fprintf(stderr, "select() failed. (%d)\n", GETSOCKETERRNO());
             exit(-1);
         }
+
         if (FD_ISSET(socket_connection->socket_peer, &reads)) {
             char read[4096];
             int bytes_received = recv(socket_connection->socket_peer, read, 4096, 0);
@@ -171,12 +175,17 @@ void run_cli(){
             }
             printf("Received (%d bytes): %.*s", bytes_received, bytes_received, read);
         }
+
         if (FD_ISSET(0, &reads)){
             char read[4096];
             printf("waiting...\n");
             if (!fgets(read, 4096, stdin)) break;
             printf("Sending: %s", read);
-            int bytes_sent = send(socket_connection->socket_peer, read, strlen(read), 0);
+            
+            char buf[strlen(read)+3];
+            strcat(strcpy(buf, read), ":\n\n");
+            
+            int bytes_sent = send(socket_connection->socket_peer, buf, strlen(buf), 0);
             printf("Sent %d bytes.\n", bytes_sent);
         }
     }
