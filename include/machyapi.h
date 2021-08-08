@@ -18,11 +18,16 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include <pthread.h>
+
 #define ISVALIDSOCKET(s) ((s) >= 0)
 #define CLOSESOCKET(s) close(s)
 #define SOCKET int
 #define GETSOCKETERRNO() (errno)
 
+#define NO_OF_THREADS 4
+
+#define MACHY_PORT 3333
 // add to heap
 struct socket {
     SOCKET socket_peer;
@@ -148,28 +153,87 @@ void run_process(char *request){
     cleanup();
 }
 
-void run_cli(){
+/*
+buffer-overflow exploit:
+Berkeley sockets by definition close upon a received message. This CLI keeps a socket open
+because it assumes a default message size.
+-> only use in trusted environments
+-> have to change server side for this to work
+*/
+void run_cli_unsafe(){
     printf("To send data, enter command followed by enter.\n");
-    fd_set reads;
-    FD_ZERO(&reads);
-    FD_SET(socket_connection->socket_peer, &reads);
-    FD_SET(0, &reads);
-
-    struct timeval timeout;
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 100;
     
     while(1){
 
-        if (select(socket_connection->socket_peer, &reads, 0,0, &timeout) < 0){
+        fd_set reads;
+        FD_ZERO(&reads);
+        FD_SET(socket_connection->socket_peer, &reads);
+        FD_SET(0, &reads);
+
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100;
+        if (select(socket_connection->socket_peer+1, &reads, 0,0, &timeout) < 0){
             fprintf(stderr, "select() failed. (%d)\n", GETSOCKETERRNO());
             exit(-1);
         }
 
         if (FD_ISSET(socket_connection->socket_peer, &reads)) {
+            printf("socket open for reading\n");
+            char read[16];
+            int total_bytes_received = 0;
+            while (total_bytes_received < 16)
+            {
+                int bytes_received = recv(socket_connection->socket_peer, read, 16, 0);
+                if (bytes_received < 1) {
+                    printf("Connection closed by peer.\n");
+                    exit(-1);
+                }
+                total_bytes_received = total_bytes_received + bytes_received;
+            }
+            printf("Received (%d bytes): %.*s", total_bytes_received, total_bytes_received, read);
+        }
+
+        if (FD_ISSET(0, &reads)){
+            char read[4096];
+            printf("waiting...\n");
+            if (!fgets(read, 4096, stdin)) break;
+            printf("Sending: %s", read);
+            
+            read[strlen(read)-1] = '\0';
+            char buf[strlen(read)+3];
+            strcat(strcpy(buf, read), ":\n\n");
+            
+            int bytes_sent = send(socket_connection->socket_peer, buf, strlen(buf), 0);
+            printf("Sent %d bytes.\n", bytes_sent);
+        }
+    }
+}
+/*
+safe cli
+-> does require to re-establish connection....
+*/
+void run_cli(){
+    printf("To send data, enter command followed by enter.\n");
+
+    while(1){
+        fd_set reads;
+        FD_ZERO(&reads);
+        FD_SET(socket_connection->socket_peer, &reads);
+        FD_SET(0, &reads);
+
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100;
+        if (select(socket_connection->socket_peer+1, &reads, 0, 0, &timeout) < 0){
+            fprintf(stderr, "select() failed. (%d)\n", GETSOCKETERRNO());
+            exit(-1);
+        }
+
+        if (FD_ISSET(socket_connection->socket_peer, &reads)){
             char read[4096];
             int bytes_received = recv(socket_connection->socket_peer, read, 4096, 0);
-            if (bytes_received < 1) {
+            if(bytes_received < 1) {
                 printf("Connection closed by peer.\n");
                 break;
             }
@@ -181,14 +245,47 @@ void run_cli(){
             printf("waiting...\n");
             if (!fgets(read, 4096, stdin)) break;
             printf("Sending: %s", read);
-            
+
+            read[strlen(read)-1] = '\0';
             char buf[strlen(read)+3];
             strcat(strcpy(buf, read), ":\n\n");
-            
+
             int bytes_sent = send(socket_connection->socket_peer, buf, strlen(buf), 0);
             printf("Sent %d bytes.\n", bytes_sent);
         }
     }
+}
+
+/* 
+very basic request in a seperate thread. Recv function is problematic in this way but
+good enough for "OK" response message
+*/
+void *run_request(void *request){
+    char buf[strlen(request)+3];
+    strcat(strcpy(buf, request), ":\n\n");
+
+    int bytes_sent = send(socket_connection->socket_peer, buf, strlen(buf), 0);
+    printf("Sent %d bytes.\n", bytes_sent);
+
+    char read[4096];
+    int bytes_received = recv(socket_connection->socket_peer, read, 4096, 0);
+    printf("Received (%d bytes): %.*s", bytes_received, bytes_received, read);
+
+    cleanup();
+    pthread_exit(NULL);
+}
+
+void machy_request(char *request)
+{
+    pthread_t tid[1];
+    init_socket("0.0.0.0", "3333");
+
+    print_addr();
+    create();
+    make_connection();
+
+    pthread_create(&tid[0], NULL, run_request, request);
+    //pthread_join(tid[0], NULL);
 }
 
 #endif

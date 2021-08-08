@@ -6,25 +6,21 @@ int main(int argc, char* argv[]){
         exit(-1);
     }
 
-    init_socket(argv[1], argv[2]);
+    //init_socket(argv[1], argv[2]);
 
-    print_addr();
-    create();
-    wait_for_connection();
+    //print_addr();
+    //create();
+    //wait_for_connection();
 
     printf("run process\n");
-    run_process("TEST000001");
+    //run_process("TEST000001");
 
     // start new
 
-    init_socket(argv[1], argv[2]);
+    printf("machy request\n");
+    machy_request("TEST000001");
+    // simulating real-time while loop...
+    while(1){}
 
-    print_addr();
-    create();
-    wait_for_connection();
-
-    printf("run\n");
-    run("ECHO000001");
-    
     return 1;
 }
