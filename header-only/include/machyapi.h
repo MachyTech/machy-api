@@ -271,7 +271,6 @@ void *run_request(void *request){
     int bytes_received = recv(socket_connection->socket_peer, read, 4096, 0);
     printf("Received (%d bytes): %.*s", bytes_received, bytes_received, read);
 
-    cleanup();
     pthread_exit(NULL);
 }
 
