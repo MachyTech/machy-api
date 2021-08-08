@@ -132,38 +132,4 @@ namespace machyAPI
         }
         return 0;
     }
-
-    int asynchronous_trajectory_client(std::vector<Sim> &virposition, std::vector<Data> &trajectory)
-    {
-        try {
-            machysockets_aSync::aSyncTCPClient client;
-            
-            std::string trajectory_data ("TRAJSIM002:");
-            std::string position_data ("VIRPOS0001:");
-
-            for (const auto &arr: trajectory){
-                trajectory_data += std::to_string(arr.x)+","+std::to_string(arr.y)+"\n";
-            }
-
-            trajectory_data += "\n";
-            //std::cout<<trajectory_data<<std::endl;
-            
-            client.send_data("127.0.0.1", 3333, handler, 1, trajectory_data);
-
-            for (const auto &arr: virposition){
-                position_data += std::to_string(arr.x)+","+std::to_string(arr.y)+
-                ","+std::to_string(arr.t)+","+std::to_string(arr.v)+","+std::to_string(arr.theta)+"\n";
-            }
-
-            position_data += "\n";
-
-            client.send_data("127.0.0.1", 3333, handler, 1, position_data);
-            client.close();
-        }
-        catch (system::system_error &e) {
-            std::cout << "Error occured! Error code = " << e.code() << ". Message: "<< e.what();
-            return e.code().value();
-        }
-        return 0;
-    }
 }

@@ -70,7 +70,7 @@ namespace machysockets_aSync
         Callback callback,
         unsigned int request_id)
     {
-        std::string request = "EMULATE_LONG_CALC_OP " + std::to_string(duration_sec) + "\n";
+        std::string request = "TEST000001" + std::to_string(duration_sec) + ":\n\n";
         std::shared_ptr<aSync_Session> session =
         std::shared_ptr<aSync_Session>(new aSync_Session(m_ios, 
             raw_ip_address, port_num, request, request_id, callback));

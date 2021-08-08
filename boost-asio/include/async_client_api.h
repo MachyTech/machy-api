@@ -1,5 +1,5 @@
-#ifndef TCP_ASYNC_CLIENT_API_H_
-#define TCP_ASYNC_CLIENT_API_H_
+#ifndef ASYNC_CLIENT_API_H_
+#define ASYNC_CLIENT_API_H_
 
 #include <boost/asio.hpp>
 
@@ -137,3 +137,4 @@ namespace machyAPI
         };
     }
 }
+#endif
