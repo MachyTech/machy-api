@@ -3,16 +3,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/wait.h>
-
-// socket programming
+// systemcalls
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <sys/io.h>
+#include <sys/mman.h>
+
+// socket api
 #include <netinet/in.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -114,7 +119,45 @@ void cleanup(void){
     free(socket_connection);
     printf("Finished.\n");
 }
+/* file reader */
+const char * read_file(char *file_name)
+{
+    int fp = open(file_name, O_RDWR);
+    if (fp < 0)
+    {
+        fprintf(stderr, "open() failed. (%d)\n", errno);
+        exit(-1);
+    }
 
+    struct stat statbuf;
+    int status = fstat (fp, &statbuf);
+    if(status < 0){
+        fprintf(stderr, "fstat() failed. (%d)\n", errno);
+        exit(-11);
+    }
+    
+    char *file_contents = mmap (NULL, statbuf.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fp, 0);
+    if(file_contents == MAP_FAILED){
+        fprintf(stderr, "mmap() failed. (%d) - %s\n", errno, strerror(errno));
+        exit(-1);
+    }
+    close(fp);
+
+    /* output contents */
+    ssize_t n = write(1, file_contents, statbuf.st_size);
+    if(n!= statbuf.st_size){
+        fprintf(stderr, "write() failed. (%d)\n", errno);
+    }
+
+    return file_contents;
+}
+
+/* void unmap_file(char *ptr)
+{
+    if(munmap(ptr, statbuf.st_size) != 0){
+        fprintf(stderr, "munmap() failed. (%d).\n", errno);
+    }
+} */
 /*
 blocking I/O
 */
@@ -255,6 +298,7 @@ void run_cli(){
         }
     }
 }
+
 
 /* 
 very basic request in a seperate thread. Recv function is problematic in this way but
